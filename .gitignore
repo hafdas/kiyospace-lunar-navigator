@@ -244,3 +244,11 @@ data/raw/
 *.tpc
 *.tf
 *.tls
+
+*.img
+*.lbl
+
+*.img
+*.lbl
+*.zip
+*.tgz

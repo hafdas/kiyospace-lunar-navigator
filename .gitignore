@@ -218,3 +218,29 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Lingkungan Virtual & Cache Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.env
+
+# Data Mentah & File Raster/SPICE Berukuran Besar
+data/raw/
+*.tif
+*.tiff
+*.bsp
+*.tpc
+*.tf
+*.tls
+*.tgz
+*.xyzi
+
+# Kernel NAIF SPICE
+data/raw/
+*.bpc
+*.bsp
+*.tpc
+*.tf
+*.tls

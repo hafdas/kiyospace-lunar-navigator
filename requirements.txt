@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+rasterio
+xarray
+geopandas
+astropy
+spiceypy
+numpy
+scipy
+pytest

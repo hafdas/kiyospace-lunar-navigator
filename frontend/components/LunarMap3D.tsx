@@ -83,7 +83,7 @@ export default function LunarGlobe3D({
     setIsPredictingPoint(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/predict-viability", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/predict-viability`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -119,7 +119,7 @@ export default function LunarGlobe3D({
     setIsScanningSites(true);
     setScanSummary(null);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/recommend-sites", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/recommend-sites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

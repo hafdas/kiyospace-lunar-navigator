@@ -93,7 +93,7 @@ export default function AiDecisionPanel({
     setOptLoading(true);
     setOptError(null);
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/optimize-window", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/optimize-window`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,7 +138,7 @@ export default function AiDecisionPanel({
     setAdvLoading(true);
     setAdvError(null);
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/ai-advisor", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/ai-advisor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -138,14 +138,14 @@ return (
             {data.site.data_label}
           </span>
           <a
-            href={`http://127.0.0.1:8000/api/results/${data.run_id}/export/csv`}
+            href={`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/results/${data.run_id}/export/csv`}
             download={`KiyoSpace_${data.site.site_id}_Report.csv`}
             className="text-[11px] px-2 py-0.5 rounded bg-cyan-900/50 text-cyan-300 border border-cyan-800 hover:bg-cyan-800 cursor-pointer transition"
           >
             ↓ CSV
           </a>
           <a
-            href={`http://127.0.0.1:8000/api/results/${data.run_id}/export/json`}
+            href={`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/results/${data.run_id}/export/json`}
             download={`KiyoSpace_${data.site.site_id}_Full.json`}
             className="text-[11px] px-2 py-0.5 rounded bg-amber-900/50 text-amber-300 border border-amber-800 hover:bg-amber-800 cursor-pointer transition"
           >

@@ -7,7 +7,7 @@ import rasterio
 RAW_DIR = Path("data/raw")
 OUTPUT_MANIFEST = Path("data/provenance_manifest.json")
 
-# Pemetaan sumber resmi (URL/DOI) berdasarkan sub-folder dataset
+# Official source mapping (URL/DOI) by dataset subfolder.
 SOURCE_CATALOG = {
     "site01": {
         "dataset_name": "NASA LOLA PGDA 5m DEM (Site01 - Connecting Ridge)",
@@ -67,7 +67,7 @@ def extract_geotiff_info(filepath: Path) -> dict:
 
 def main():
     if not RAW_DIR.exists():
-        print(f"Folder {RAW_DIR} tidak ditemukan.")
+        print(f"Folder {RAW_DIR} was not found.")
         return
 
     entries = []
@@ -75,7 +75,7 @@ def main():
         if not file_path.is_file():
             continue
 
-        # Identifikasi kategori dari nama sub-folder pertama di dalam data/raw/
+        # Identify the category from the first subfolder name under data/raw/.
         rel_parts = file_path.relative_to(RAW_DIR).parts
         category = rel_parts[0].lower() if len(rel_parts) > 1 else "uncategorized"
         source_meta = SOURCE_CATALOG.get(category, {

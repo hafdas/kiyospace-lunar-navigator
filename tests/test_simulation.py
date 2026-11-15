@@ -9,7 +9,7 @@ from backend.physics.simulation import (
 
 
 def test_finite_solar_disk_visible_fraction():
-    """Memastikan integrasi piringan Matahari berhingga menghasilkan 0, 0.5, dan 1 secara akurat."""
+    """Verify that finite solar disk integration accurately returns 0, 0.5, and 1."""
     r_sun = 0.265
     assert compute_solar_visible_fraction(sun_el_deg=1.0, horizon_el_deg=0.0, sun_angular_radius_deg=r_sun) == 1.0
     assert compute_solar_visible_fraction(sun_el_deg=-1.0, horizon_el_deg=0.0, sun_angular_radius_deg=r_sun) == 0.0
@@ -19,11 +19,11 @@ def test_finite_solar_disk_visible_fraction():
 
 def test_battery_energy_conservation_and_dte_tracking():
     """
-    Memastikan residual kekekalan energi baterai <= 0.1% dan deteksi Earthrise/Earthset
-    serta durasi blackout DTE bekerja sesuai hukum fisika.
+    Verify that battery energy conservation residual is <= 0.1%, Earthrise/Earthset
+    detection works, and DTE blackout duration follows the physics.
     """
     az = np.arange(0.0, 360.0, 1.0)
-    hor = np.zeros_like(az)  # Horizon datar 0°
+    hor = np.zeros_like(az)  # Flat 0° horizon.
     profile = HorizonProfile(
         azimuths_deg=az,
         horizon_elevations_deg=hor,
@@ -33,9 +33,9 @@ def test_battery_energy_conservation_and_dte_tracking():
         ground_elevation_m=1000.0,
     )
 
-    # Buat 10 titik waktu (masing-masing selang 1 jam):
-    # Jam 0-4: Matahari di +2° (terang), Bumi di +5° (DTE aktif)
-    # Jam 5-9: Matahari di -2° (gelap), Bumi di -1° (DTE blackout)
+    # Create 10 time points, one hour apart:
+    # Hours 0-4: Sun at +2° (lit), Earth at +5° (DTE active).
+    # Hours 5-9: Sun at -2° (dark), Earth at -1° (DTE blackout).
     series = []
     for h in range(10):
         day_phase = h < 5

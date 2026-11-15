@@ -8,3 +8,5 @@ spiceypy
 numpy
 scipy
 pytest
+optuna
+google-genai

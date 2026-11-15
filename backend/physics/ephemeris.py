@@ -7,7 +7,7 @@ from typing import Iterable, List
 import numpy as np
 import spiceypy as spice
 
-# Radius datum standar Bulan (LOLA / IAU MOON_ME) dalam kilometer
+# Standard lunar datum radius (LOLA / IAU MOON_ME) in kilometers.
 MOON_DATUM_RADIUS_KM = 1737.4
 
 REQUIRED_KERNELS = [
@@ -35,15 +35,15 @@ class EphemerisPoint:
 
 class LunarEphemerisEngine:
     """
-    Mesin perhitungan geometri Matahari dan Bumi dari permukaan Bulan
-    menggunakan kerangka referensi MOON_ME / DE421 dan basis lokal East-North-Up (ENU).
+    Compute Sun and Earth geometry from the lunar surface
+    using the MOON_ME / DE421 reference frame and the local East-North-Up (ENU) basis.
     """
 
     def __init__(self, kernel_dir: str | Path = "data/raw/spice") -> None:
         self.kernel_dir = Path(kernel_dir)
         self._load_kernels()
 
-        # Ambil radius Matahari dari kernel PCK (fallback ke 696000.0 km jika belum dimuat)
+        # Read the Sun radius from the PCK kernel (fall back to 696000.0 km if unavailable).
         try:
             _, sun_radii = spice.bodvrd("SUN", "RADII", 3)
             self.sun_radius_km = float(sun_radii[0])
@@ -51,12 +51,12 @@ class LunarEphemerisEngine:
             self.sun_radius_km = 696000.0
 
     def _load_kernels(self) -> None:
-        """Memuat seluruh kernel NAIF SPICE yang dibutuhkan ke dalam kernel pool."""
+        """Load all required NAIF SPICE kernels into the kernel pool."""
         spice.kclear()
         for kernel_name in REQUIRED_KERNELS:
             kernel_path = self.kernel_dir / kernel_name
             if not kernel_path.exists():
-                raise FileNotFoundError(f"Kernel SPICE tidak ditemukan: {kernel_path}")
+                raise FileNotFoundError(f"SPICE kernel not found: {kernel_path}")
             spice.furnsh(str(kernel_path.resolve()))
 
     @staticmethod
@@ -64,8 +64,8 @@ class LunarEphemerisEngine:
         lat_deg: float, lon_deg: float, elev_m: float
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Menghitung vektor posisi pengamat (km) dan vektor basis satuan (East, North, Up)
-        dalam kerangka body-fixed MOON_ME.
+        Compute the observer position vector (km) and unit basis vectors (East, North, Up)
+        in the body-fixed MOON_ME frame.
         """
         lat = np.radians(lat_deg)
         lon = np.radians(lon_deg)
@@ -73,14 +73,14 @@ class LunarEphemerisEngine:
         sin_lat, cos_lat = np.sin(lat), np.cos(lat)
         sin_lon, cos_lon = np.sin(lon), np.cos(lon)
 
-        # Basis lokal East-North-Up (ENU)
+        # Local East-North-Up (ENU) basis.
         east_hat = np.array([-sin_lon, cos_lon, 0.0], dtype=float)
         north_hat = np.array(
             [-sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat], dtype=float
         )
         up_hat = np.array([cos_lat * cos_lon, cos_lat * sin_lon, sin_lat], dtype=float)
 
-        # Posisi pengamat dari pusat massa Bulan (dalam km)
+        # Observer position from the lunar center of mass (km).
         r_km = MOON_DATUM_RADIUS_KM + (elev_m / 1000.0)
         obs_pos_km = r_km * up_hat
 
@@ -94,10 +94,10 @@ class LunarEphemerisEngine:
         up_hat: np.ndarray,
     ) -> tuple[float, float, float]:
         """
-        Memproyeksikan vektor arah target ke basis lokal ENU menjadi:
-        - Azimuth (0° = Utara, 90° = Timur, 180° = Selatan, 270° = Barat)
-        - Elevation (-90° hingga +90° di atas bidang horizontal lokal)
-        - Jarak (km)
+        Project a target direction vector onto the local ENU basis to obtain:
+        - Azimuth (0° = North, 90° = East, 180° = South, 270° = West)
+        - Elevation (-90° to +90° above the local horizontal plane)
+        - Distance (km)
         """
         dist_km = float(np.linalg.norm(vec_me))
         v_east = float(np.dot(vec_me, east_hat))
@@ -118,15 +118,15 @@ class LunarEphemerisEngine:
         abcorr: str = "LT+S",
     ) -> EphemerisPoint:
         """
-        Menghitung sudut azimuth & elevasi Matahari dan Bumi untuk satu waktu UTC.
-        abcorr='LT+S' menghasilkan posisi tampak (apparent) yang selaras dengan JPL Horizons.
+        Compute the Sun and Earth azimuth and elevation angles for one UTC time.
+        abcorr='LT+S' produces apparent positions consistent with JPL Horizons.
         """
         et = float(spice.str2et(utc_str))
         obs_pos_km, east_hat, north_hat, up_hat = self._enu_basis_and_position(
             lat_deg, lon_deg, elev_m
         )
 
-        # Posisi pusat Matahari relatif terhadap pusat Bulan dalam kerangka MOON_ME
+        # Sun center position relative to the lunar center in the MOON_ME frame.
         sun_from_moon_km, _ = spice.spkpos("SUN", et, "MOON_ME", abcorr, "MOON")
         obs_to_sun_km = np.array(sun_from_moon_km, dtype=float) - obs_pos_km
         sun_az, sun_el, sun_dist = self._vector_to_az_el(
@@ -136,7 +136,7 @@ class LunarEphemerisEngine:
             np.degrees(np.arcsin(np.clip(self.sun_radius_km / sun_dist, 0.0, 1.0)))
         )
 
-        # Posisi pusat Bumi relatif terhadap pusat Bulan dalam kerangka MOON_ME
+        # Earth center position relative to the lunar center in the MOON_ME frame.
         earth_from_moon_km, _ = spice.spkpos("EARTH", et, "MOON_ME", abcorr, "MOON")
         obs_to_earth_km = np.array(earth_from_moon_km, dtype=float) - obs_pos_km
         earth_az, earth_el, earth_dist = self._vector_to_az_el(
@@ -165,7 +165,7 @@ class LunarEphemerisEngine:
         elev_m: float = 0.0,
         abcorr: str = "LT+S",
     ) -> List[EphemerisPoint]:
-        """Menghasilkan deret waktu posisi Matahari & Bumi selama durasi misi."""
+        """Generate a time series of Sun and Earth positions over the mission duration."""
         clean_start = start_utc.replace("Z", "+00:00")
         t0 = datetime.fromisoformat(clean_start)
         if t0.tzinfo is None:
@@ -190,7 +190,7 @@ class LunarEphemerisEngine:
 
 
 if __name__ == "__main__":
-    # Contoh uji cepat pada koordinat Site01 (Connecting Ridge)
+    # Quick test at the Site01 (Connecting Ridge) coordinates.
     engine = LunarEphemerisEngine()
     sample = engine.evaluate_single(
         utc_str="2026-11-15T00:00:00Z",
@@ -198,7 +198,7 @@ if __name__ == "__main__":
         lon_deg=225.0,
         elev_m=1200.0,
     )
-    print(f"Waktu UTC            : {sample.utc}")
+    print(f"UTC Time             : {sample.utc}")
     print(f"Sun Azimuth / Elev   : {sample.sun_azimuth_deg:.4f}° / {sample.sun_elevation_deg:.4f}°")
     print(f"Sun Angular Radius   : {sample.sun_angular_radius_deg:.4f}°")
     print(f"Earth Azimuth / Elev : {sample.earth_azimuth_deg:.4f}° / {sample.earth_elevation_deg:.4f}°")

@@ -31,29 +31,29 @@ def compute_horizon_from_grid(
     nodata_val: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, float]:
     """
-    Menghitung kurva profil sudut horizon H(azimuth) 0°–360° pada grid elevasi lokal
-    dengan koreksi kelengkungan permukaan Bulan (R = 1737.4 km).
-    Konvensi grid proyeksi Kutub Selatan (X = Easting, Y = Northing ke atas / baris menurun):
-      - Azimuth 0°   (Utara / +Y) -> d_row < 0, d_col = 0
-      - Azimuth 90°  (Timur / +X) -> d_row = 0, d_col > 0
-      - Azimuth 180° (Selatan / -Y) -> d_row > 0, d_col = 0
-      - Azimuth 270° (Barat / -X) -> d_row = 0, d_col < 0
+    Compute the horizon angle profile H(azimuth), 0°–360°, on the local elevation grid,
+    accounting for lunar surface curvature (R = 1737.4 km).
+    South Polar Stereographic grid convention (X = Easting, Y = Northing upward / rows downward):
+      - Azimuth 0°   (North / +Y) -> d_row < 0, d_col = 0
+      - Azimuth 90°  (East / +X) -> d_row = 0, d_col > 0
+      - Azimuth 180° (South / -Y) -> d_row > 0, d_col = 0
+      - Azimuth 270° (West / -X) -> d_row = 0, d_col < 0
     """
     rows, cols = dem_m.shape
     r0 = int(round(obs_row))
     c0 = int(round(obs_col))
 
     if not (0 <= r0 < rows and 0 <= c0 < cols):
-        raise ValueError(f"Titik pengamat ({obs_row}, {obs_col}) berada di luar batas DEM {dem_m.shape}.")
+        raise ValueError(f"Observer point ({obs_row}, {obs_col}) is outside DEM bounds {dem_m.shape}.")
 
     ground_z = float(dem_m[r0, c0])
     if nodata_val is not None and np.isclose(ground_z, nodata_val):
-        raise ValueError("Titik pengamat jatuh pada piksel NoData.")
+        raise ValueError("The observer point falls on a NoData pixel.")
 
     z_obs = ground_z + observer_height_m
     step_m = float(radial_step_m) if radial_step_m is not None else float(pixel_size_m)
 
-    # Batas jarak maksimum hingga tepi raster jika tidak ditentukan manual
+    # Default to the maximum distance to the raster edge when no limit is specified.
     if max_radius_m is None:
         max_px = min(r0, rows - 1 - r0, c0, cols - 1 - c0)
         max_radius_m = max_px * pixel_size_m
@@ -61,7 +61,7 @@ def compute_horizon_from_grid(
     num_steps = max(1, int(np.floor(max_radius_m / step_m)))
     distances_m = np.arange(1, num_steps + 1, dtype=float) * step_m
 
-    # Koreksi kelengkungan Bulan: penurunan elevasi akibat kelengkungan bola
+    # Lunar curvature correction: elevation drop caused by spherical curvature.
     curvature_drop_m = (distances_m ** 2) / (2.0 * MOON_RADIUS_M)
 
     n_az = int(round(360.0 / azimuth_step_deg))
@@ -70,7 +70,7 @@ def compute_horizon_from_grid(
 
     for idx, az_deg in enumerate(azimuths_deg):
         az_rad = np.radians(az_deg)
-        # Vektor arah piksel pada raster proyeksi stereografik
+        # Pixel direction vector in the stereographic projection raster.
         d_col = (distances_m * np.sin(az_rad)) / pixel_size_m
         d_row = -(distances_m * np.cos(az_rad)) / pixel_size_m
 
@@ -100,7 +100,7 @@ def compute_horizon_from_grid(
             s_dist = s_dist[mask_ok]
             s_curv = s_curv[mask_ok]
 
-        # Sudut elevasi puncak medan relatif terhadap horizontal lokal pengamat
+        # Terrain peak elevation angle relative to the observer's local horizontal.
         dz_apparent = (z_terrain - s_curv) - z_obs
         elev_angles = np.degrees(np.arctan2(dz_apparent, s_dist))
         horizon_deg[idx] = float(np.max(elev_angles))
@@ -117,15 +117,15 @@ def compute_horizon_from_geotiff(
     max_radius_m: float = 15_000.0,
 ) -> HorizonProfile:
     """
-    Membaca GeoTIFF LOLA/SDEM dalam proyeksi South Polar Stereographic,
-    mengonversi (lat, lon) MOON_ME ke koordinat piksel, dan menghitung profil horizon 360°.
+    Read a LOLA/SDEM GeoTIFF in the South Polar Stereographic projection,
+    convert (lat, lon) in MOON_ME to pixel coordinates, and compute a 360° horizon profile.
     """
     path = Path(dem_path)
     if not path.exists():
-        raise FileNotFoundError(f"File DEM tidak ditemukan: {path}")
+        raise FileNotFoundError(f"DEM file not found: {path}")
 
     with rasterio.open(path) as src:
-        # Transformasi dari koordinat geografis Bulan (MOON_ME) ke CRS raster
+        # Transform lunar geographic coordinates (MOON_ME) to the raster CRS.
         geo_crs = src.crs.geodetic_crs
         transformer = Transformer.from_crs(geo_crs, src.crs, always_xy=True)
         x_proj, y_proj = transformer.transform(lon_deg, lat_deg)
@@ -133,7 +133,7 @@ def compute_horizon_from_geotiff(
         obs_row, obs_col = src.index(x_proj, y_proj)
         pixel_size_m = float(abs(src.res[0]))
 
-        # Baca jendela (window) lokal di sekitar pengamat agar hemat memori
+        # Read a local window around the observer to reduce memory usage.
         radius_px = int(np.ceil(max_radius_m / pixel_size_m)) + 2
         row_start = max(0, obs_row - radius_px)
         row_stop = min(src.height, obs_row + radius_px + 1)
@@ -170,7 +170,7 @@ def compute_horizon_from_geotiff(
 
 
 if __name__ == "__main__":
-    # Uji langsung pada raster nyata Site01 (Connecting Ridge) jika tersedia
+    # Run a direct test on the real Site01 raster (Connecting Ridge), if available.
     site01_dem = Path("data/raw/site01/Site01_final_adj_5mpp_surf.tif")
     if site01_dem.exists():
         profile = compute_horizon_from_geotiff(
@@ -181,9 +181,9 @@ if __name__ == "__main__":
             azimuth_step_deg=1.0,
             max_radius_m=10_000.0,
         )
-        print(f"Elevasi Tanah Site01 (-89.5°, 225°): {profile.ground_elevation_m:.2f} m")
-        print(f"Sudut Horizon Minimum  : {np.min(profile.horizon_elevations_deg):.3f}°")
-        print(f"Sudut Horizon Maksimum : {np.max(profile.horizon_elevations_deg):.3f}°")
-        print(f"Sudut Horizon Rata-rata: {np.mean(profile.horizon_elevations_deg):.3f}°")
+        print(f"Site01 ground elevation (-89.5°, 225°): {profile.ground_elevation_m:.2f} m")
+        print(f"Minimum horizon angle  : {np.min(profile.horizon_elevations_deg):.3f}°")
+        print(f"Maximum horizon angle  : {np.max(profile.horizon_elevations_deg):.3f}°")
+        print(f"Mean horizon angle     : {np.mean(profile.horizon_elevations_deg):.3f}°")
     else:
-        print("File Site01_final_adj_5mpp_surf.tif belum ditemukan di data/raw/site01/.")
+        print("Site01_final_adj_5mpp_surf.tif was not found in data/raw/site01/.")

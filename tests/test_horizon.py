@@ -4,8 +4,8 @@ from backend.physics.horizon import compute_horizon_from_grid, MOON_RADIUS_M
 
 def test_flat_lunar_sphere_horizon():
     """
-    Pada dataran rata sempurna (elevasi 0 m) dengan tinggi pengamat h = 1.5 m,
-    sudut dip horizon teoritis adalah -arccos(R / (R + h)) ~ -0.0753°.
+    On a perfectly flat plain (elevation 0 m) with observer height h = 1.5 m,
+    the theoretical horizon dip is -arccos(R / (R + h)) ~ -0.0753°.
     """
     grid_size = 401
     pixel_m = 5.0
@@ -24,22 +24,22 @@ def test_flat_lunar_sphere_horizon():
 
     assert ground_z == 0.0
     assert len(az) == 72
-    # Pada jarak 950 m dengan tinggi 1.5 m, sudut horizon harus bernilai negatif (di bawah horizontal)
+    # At 950 m distance and 1.5 m height, the horizon angle should be negative (below horizontal).
     assert np.all(hor < 0.0)
     assert np.all(hor > -0.25)
 
 
 def test_isolated_east_peak_obstruction():
     """
-    Menempatkan bukit setinggi 101.5 m tepat 1000 m di arah Timur (Azimuth = 90°).
-    Sudut elevasi puncak harus mendekati arctan(100 / 1000) ~ 5.71°.
+    Place a 101.5 m hill exactly 1000 m to the east (azimuth = 90°).
+    The peak elevation angle should be close to arctan(100 / 1000) ~ 5.71°.
     """
     grid_size = 501
     pixel_m = 5.0
     dem = np.zeros((grid_size, grid_size), dtype=float)
     center = grid_size // 2
 
-    # 1000 m ke Timur = +200 kolom
+    # 1000 m east = +200 columns.
     dem[center - 1 : center + 2, center + 200] = 101.5
 
     az, hor, _ = compute_horizon_from_grid(

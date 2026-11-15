@@ -7,25 +7,25 @@ import numpy as np
 from backend.physics.ephemeris import EphemerisPoint
 from backend.physics.horizon import HorizonProfile
 
-# Konstanta fluks surya rata-rata pada jarak 1 AU (W/m^2)
+# Average solar flux at a distance of 1 AU (W/m^2)
 SOLAR_CONSTANT_WM2 = 1361.0
 
 
 @dataclass
 class LanderConfig:
-    """Parameter konfigurasi wahana pendarat (lander) yang dapat diatur pengguna."""
-    pv_area_m2: float = 4.0                 # Luas efektif panel surya (m^2)
-    pv_efficiency: float = 0.28             # Efisiensi sel surya (mis. triple-junction GaAs 28%)
-    pv_tracking: bool = True                # True = panel mengikuti azimuth Matahari (sun-tracking)
-    pv_fixed_azimuth_deg: float = 0.0       # Dipakai jika pv_tracking = False
-    pv_tilt_deg: float = 85.0               # Kemiringan panel dari bidang horizontal (vertikal di kutub)
-    battery_capacity_wh: float = 5000.0     # Kapasitas total baterai (Wh)
-    initial_soc: float = 0.80               # Status pengisian awal (0.0 - 1.0)
-    min_soc: float = 0.20                   # Batas aman pengosongan minimum baterai (DoD 80%)
-    charge_efficiency: float = 0.92         # Efisiensi pengisian baterai
-    discharge_efficiency: float = 0.92      # Efisiensi pengosongan baterai
-    nominal_load_w: float = 250.0           # Beban daya rata-rata wahana (W)
-    min_dte_elevation_margin_deg: float = 2.0  # Margin sudut minimum di atas horizon untuk DTE
+    """User-adjustable configuration for the lander."""
+    pv_area_m2: float = 4.0                 # Effective solar panel area (m^2)
+    pv_efficiency: float = 0.28             # Solar cell efficiency (e.g., 28% triple-junction GaAs)
+    pv_tracking: bool = True                # True = panels track the Sun's azimuth
+    pv_fixed_azimuth_deg: float = 0.0       # Used when pv_tracking = False
+    pv_tilt_deg: float = 85.0               # Panel tilt from horizontal (vertical at the poles)
+    battery_capacity_wh: float = 5000.0     # Total battery capacity (Wh)
+    initial_soc: float = 0.80               # Initial state of charge (0.0 - 1.0)
+    min_soc: float = 0.20                   # Minimum safe battery discharge threshold (80% DoD)
+    charge_efficiency: float = 0.92         # Battery charging efficiency
+    discharge_efficiency: float = 0.92      # Battery discharging efficiency
+    nominal_load_w: float = 250.0           # Average lander power load (W)
+    min_dte_elevation_margin_deg: float = 2.0  # Minimum elevation margin above the horizon for DTE
 
 
 @dataclass
@@ -70,7 +70,7 @@ class MissionSimulationSummary:
 def interpolate_horizon_at_azimuth(
     horizon_profile: HorizonProfile, azimuth_deg: float
 ) -> float:
-    """Interpolasi linear siklik (0°-360°) untuk sudut horizon pada azimuth tertentu."""
+    """Cyclically interpolate the horizon angle (0°-360°) at a given azimuth."""
     az = azimuth_deg % 360.0
     az_grid = np.append(horizon_profile.azimuths_deg, 360.0)
     hor_grid = np.append(
@@ -87,19 +87,19 @@ def compute_solar_visible_fraction(
     n_quadrature: int = 64,
 ) -> float:
     """
-    Menghitung fraksi luas piringan Matahari berhingga V(t) in [0, 1] yang tampak
-    di atas garis horizon lokal menggunakan kuadratur irisan horizontal piringan.
+    Compute the visible fraction V(t) in [0, 1] of the finite solar disk
+    above the local horizon using horizontal disk-slice quadrature.
     """
     r = max(sun_angular_radius_deg, 1e-6)
-    # Seluruh piringan berada di atas horizon
+    # The entire disk is above the horizon.
     if sun_el_deg - r >= horizon_el_deg:
         return 1.0
-    # Seluruh piringan terbenam di bawah horizon
+    # The entire disk is below the horizon.
     if sun_el_deg + r <= horizon_el_deg:
         return 0.0
 
-    # Integrasi numerik irisan piringan lingkaran berjari-jari r
-    # y diukur dari pusat Matahari (-r hingga +r)
+    # Numerically integrate slices of the circular disk with radius r.
+    # y is measured from the center of the Sun (-r to +r).
     y = np.linspace(-r, r, n_quadrature)
     dy = y[1] - y[0]
     chord_widths = 2.0 * np.sqrt(np.maximum(0.0, r**2 - y**2))
@@ -117,7 +117,7 @@ def compute_pv_power_w(
     visible_fraction: float,
     config: LanderConfig,
 ) -> float:
-    """Menghitung daya listrik panel surya P_PV(t) dalam Watt."""
+    """Compute solar panel electric power P_PV(t) in watts."""
     if visible_fraction <= 0.0 or sun_el_deg <= -1.0:
         return 0.0
 
@@ -129,7 +129,7 @@ def compute_pv_power_w(
     else:
         d_az_rad = np.radians(sun_az_deg - config.pv_fixed_azimuth_deg)
 
-    # Faktor kosinus sudut datang sinar Matahari pada bidang panel miring
+    # Cosine of the angle of incidence of sunlight on the tilted panel.
     cos_incidence = (
         np.sin(el_rad) * np.cos(tilt_rad)
         + np.cos(el_rad) * np.sin(tilt_rad) * np.cos(d_az_rad)
@@ -151,16 +151,16 @@ def run_mission_simulation(
     config: LanderConfig | None = None,
 ) -> MissionSimulationSummary:
     """
-    Menjalankan simulasi fisika misi menyeluruh (pencahayaan, PV, baterai, DTE)
-    selama deret waktu 48–168 jam dan memverifikasi kekekalan energi baterai.
+    Run a full mission physics simulation (illumination, PV, battery, DTE)
+    over a time series and verify battery energy conservation.
     """
     if len(ephemeris_series) < 2:
-        raise ValueError("Deret waktu efemeris minimal berisi 2 titik waktu.")
+        raise ValueError("The ephemeris time series must contain at least two points.")
 
     cfg = config if config is not None else LanderConfig()
     dt_hours = (ephemeris_series[1].et - ephemeris_series[0].et) / 3600.0
     if dt_hours <= 0:
-        raise ValueError("Langkah waktu efemeris harus bernilai positif.")
+        raise ValueError("The ephemeris time step must be positive.")
 
     e_max = cfg.battery_capacity_wh
     e_min = cfg.min_soc * e_max
@@ -185,7 +185,7 @@ def run_mission_simulation(
     dte_active_steps = 0
 
     for pt in ephemeris_series:
-        # 1. Pencahayaan Matahari
+        # 1. Solar illumination
         sun_hor = interpolate_horizon_at_azimuth(horizon_profile, pt.sun_azimuth_deg)
         vis_frac = compute_solar_visible_fraction(
             sun_el_deg=pt.sun_elevation_deg,
@@ -209,7 +209,7 @@ def run_mission_simulation(
 
         net_wh = e_pv_step - e_load_step
         if net_wh >= 0.0:
-            # Surplus daya mengisi baterai
+            # Charge the battery with surplus power.
             stored_gain = net_wh * cfg.charge_efficiency
             room_available = e_max - e_curr
             if stored_gain <= room_available:
@@ -221,7 +221,7 @@ def run_mission_simulation(
                 total_charge_loss_wh += accepted_input * (1.0 - cfg.charge_efficiency)
                 e_curr = e_max
         else:
-            # Defisit daya diambil dari baterai
+            # Supply the power deficit from the battery.
             deficit_wh = -net_wh
             required_draw = deficit_wh / cfg.discharge_efficiency
             available_draw = e_curr - e_min
@@ -242,7 +242,7 @@ def run_mission_simulation(
         soc_curr = e_curr / e_max
         min_soc_seen = min(min_soc_seen, soc_curr)
 
-        # 3. Komunikasi Direct-to-Earth (DTE) L1
+        # 3. Direct-to-Earth (DTE) L1 communications
         earth_hor = interpolate_horizon_at_azimuth(horizon_profile, pt.earth_azimuth_deg)
         dte_margin = pt.earth_elevation_deg - earth_hor
         dte_active = dte_margin >= cfg.min_dte_elevation_margin_deg
@@ -281,8 +281,8 @@ def run_mission_simulation(
             )
         )
 
-    # Audit hukum kekekalan energi:
-    # E_akhir - E_awal == Total_PV - Total_Load - Curtailment + Unmet_Load - Rugi_Efisiensi
+    # Energy conservation audit:
+    # E_final - E_initial == Total_PV - Total_Load - Curtailment + Unmet_Load - Efficiency_Losses
     lhs_delta_e = e_curr - e_initial
     rhs_net_energy = (
         total_pv_wh
@@ -343,9 +343,9 @@ if __name__ == "__main__":
             elev_m=horizon.ground_elevation_m,
         )
         summary = run_mission_simulation(series, horizon)
-        print(f"Simulasi Site01 (72 Jam) Selesai:")
+        print("Site01 simulation (72 hours) complete:")
         print(f"  Mean Sun Visible Fraction : {summary.mean_sun_visible_fraction * 100:.2f}%")
         print(f"  Total PV / Load           : {summary.total_pv_generation_wh:.1f} Wh / {summary.total_load_demand_wh:.1f} Wh")
-        print(f"  SOC Minimum / Akhir       : {summary.min_battery_soc * 100:.1f}% / {summary.final_battery_soc * 100:.1f}%")
-        print(f"  Residual Kekekalan Energi : {summary.energy_balance_residual_pct:.6f}% (Target <= 0.1%)")
-        print(f"  Ketersediaan DTE          : {summary.dte_availability_pct:.1f}% (Max Blackout: {summary.max_dte_blackout_hours:.1f} jam)")
+        print(f"  Minimum / Final SOC       : {summary.min_battery_soc * 100:.1f}% / {summary.final_battery_soc * 100:.1f}%")
+        print(f"  Energy Conservation Residual: {summary.energy_balance_residual_pct:.6f}% (Target <= 0.1%)")
+        print(f"  DTE Availability          : {summary.dte_availability_pct:.1f}% (Max blackout: {summary.max_dte_blackout_hours:.1f} hours)")

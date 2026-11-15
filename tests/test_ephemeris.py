@@ -9,7 +9,7 @@ def ephemeris_engine():
 
 
 def test_enu_basis_orthogonality():
-    """Memastikan vektor basis East, North, Up saling tegak lurus dan satuan."""
+    """Verify that the East, North, and Up basis vectors are orthogonal unit vectors."""
     _, e_hat, n_hat, u_hat = LunarEphemerisEngine._enu_basis_and_position(
         lat_deg=-89.5, lon_deg=225.0, elev_m=1000.0
     )
@@ -23,8 +23,8 @@ def test_enu_basis_orthogonality():
 
 def test_south_pole_physical_bounds(ephemeris_engine):
     """
-    Memastikan hasil perhitungan di Site01 (-89.5°, 225°) berada dalam rentang
-    fisika astronomi yang valid (elevasi Matahari di kutub selamanya rendah: -3° s.d. +3°).
+    Verify that calculations at Site01 (-89.5°, 225°) fall within valid
+    astronomical bounds (solar elevation at the pole remains low: -3° to +3°).
     """
     pt = ephemeris_engine.evaluate_single(
         utc_str="2026-11-15T00:00:00Z",
@@ -40,7 +40,7 @@ def test_south_pole_physical_bounds(ephemeris_engine):
 
 
 def test_time_series_length(ephemeris_engine):
-    """Memastikan generator deret waktu 48 jam dengan langkah 60 menit menghasilkan 49 titik."""
+    """Verify that a 48-hour time series with 60-minute steps contains 49 points."""
     series = ephemeris_engine.evaluate_series(
         start_utc="2026-11-15T00:00:00Z",
         duration_hours=48.0,
